@@ -12,7 +12,6 @@ from langchain_community.document_loaders import WebBaseLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 
-
 # Function to clean extracted text while keeping metadata
 def clean_text(text):
     text = re.sub(r"[\s\n\t\r]+", " ", text) # Remove extra spaces and newlines
@@ -40,7 +39,7 @@ def data_ingestion(directory_path,url):
                     "page_number": 0,
                     "text": clean_text(page.page_content)
                 })
-            else:
+            elif file.endswith('.pdf'):
                 file_path = os.path.join(directory_path,file)
                 pdf_loader = PyPDFLoader(file_path)
                 pdf_pages = pdf_loader.load()
@@ -102,42 +101,3 @@ def data_chunking(final_data,chunk_size,chunk_overlap):
         logging.info(CustomException(e,sys))
         raise CustomException(e,sys)
          
-              
-
-
-# if __name__ == "__main__":
-#     directory_path=os.path.join(os.getcwd(),"Data")
-#     url = "https://callofduty.fandom.com/wiki/Call_of_Duty:_Mobile"
-#     data = data_ingestion(directory_path,url)
-#     # web_text = "\n".join([doc.page_content for doc in webdata])
-#     # docx_text = "\n".join([doc.page_content for doc in docx_data])
-#     # pdf_text = "\n".join([doc.page_content for doc in pdf_data])
-#     final = data_chunking(data)
-#     # with open("web.txt", "w", encoding="utf-8") as file:
-#     #     file.write(web_text)
-#     # print(docx_data)
-#     # print(type(docx_data))
-#     # with open("docx1.json", "w", encoding="utf-8") as file:
-#     #     json.dump(docx_data, file, indent=4, ensure_ascii=False)
-#     #     # file.write(docx_text)
-#     # with open("pdf1.json", "w", encoding="utf-8") as file:
-#     #     json.dump(pdf_data, file, indent=4, ensure_ascii=False)
-#     # with open("data.json", "w", encoding="utf-8") as file:
-#     #     json.dump(data, file, indent=4, ensure_ascii=False)
-
-#     with open("chunked_data.json", "w", encoding="utf-8") as file:
-#         json.dump(final, file, indent=4, ensure_ascii=False)
-       
-#     # print(type(web_pages))
-    
-#     # for doc in web_pages:
-#     #     # print("Extracted Text:\n", doc.page_content[:500])  # Show first 500 characters
-#     #     print("\nMetadata:\n", doc.metadata)
-    
-#     # for doc in docx_data:
-#     #     print("Extracted Text:\n", doc.page_content[:50])  # Show first 500 characters
-#     #     print("\nMetadata:\n", doc.metadata)
-    
-#     # for doc in pdf_data:
-#     #     print("Extracted Text:\n", doc.page_content[:50])  # Show first 500 characters
-#     #     print("\nMetadata:\n", doc.metadata)

@@ -1,4 +1,5 @@
 import os
+import streamlit as st
 
 from data_ingestion import data_ingestion,data_chunking
 from embeddings import create_vector_db,add_embeddings_to_db
@@ -6,8 +7,8 @@ from embeddings import create_vector_db,add_embeddings_to_db
 from dotenv import load_dotenv
 load_dotenv()
 
-PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+PINECONE_API_KEY = st.secrets.get("PINECONE_API_KEY", os.getenv("PINECONE_API_KEY"))
+OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
 
 
 directory_path=os.path.join(os.getcwd(),"Data")
