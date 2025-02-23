@@ -9,12 +9,12 @@ from langchain.memory import ConversationBufferWindowMemory
 # Set Page Configuration with CODM Icon
 st.set_page_config(
     page_title="CODM: AI Tool",
-    page_icon=os.path.join(os.getcwd(),"Data\images.jpg"),
+    page_icon= './static/images.jpg',
     layout="centered"
 )
 
 # Load Background Image and Encode it in Base64
-background_image_path = os.path.join(os.getcwd(),"Data\img8.jpg") # Ensure this path is correct
+background_image_path = './static/img8.jpg' # Ensure this path is correct
 if os.path.exists(background_image_path):
     with open(background_image_path, "rb") as image_file:
         encoded_image = base64.b64encode(image_file.read()).decode()
