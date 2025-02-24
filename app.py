@@ -5,6 +5,15 @@ import base64
 from dotenv import load_dotenv
 from langchain_openai import OpenAIEmbeddings
 from langchain.memory import ConversationBufferWindowMemory
+from langchain_community.utilities import SQLDatabase
+from sqlalchemy import create_engine
+import sqlite3
+
+# Import custom modules
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "src")))
+from src.logger import logging
+from src.chains import create_rag_chain, ask_question, create_retriever, clear_memory,classification_query,sql_agent_creation
+
 
 # Set Page Configuration with CODM Icon
 st.set_page_config(
@@ -74,14 +83,14 @@ if os.path.exists(background_image_path):
             background-color: rgba(255, 215, 0, 0.8);
             color: black;
             text-align: left; 
-            float: left;
+            float: right;
             clear: both; 
             }}
 
         .bot-response {{
             background-color: rgba(0, 0, 0, 0.7);
             text-align: left;
-            float: right;
+            float: left;
             }}
 
         /* Input Styling */
@@ -112,10 +121,7 @@ if os.path.exists(background_image_path):
 else:
     st.warning("⚠️ Background image not found. Please check the file path.")
 
-# Import custom modules
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "src")))
-from src.logger import logging
-from src.chains import create_rag_chain, ask_question, create_retriever, clear_memory
+
 
 # Load environment variables
 load_dotenv()
@@ -133,17 +139,31 @@ def get_rag_chain(index_name, _embeddings):
     rag_chain = create_rag_chain(retriever)
     return rag_chain
 
+
+@st.cache_resource(ttl='2h')
+def configure_db():
+    dbfilepath = os.path.join(os.getcwd(),'dailysummary.db')
+    creator = lambda: sqlite3.connect(f"file:{dbfilepath}?mode=ro", uri=True)
+    return SQLDatabase(create_engine("sqlite:///", creator=creator))
+
+#creating sql database connection
+db = configure_db()
+
+#creating rag chain
 rag_chain = get_rag_chain(index_name, embeddings)
 
 # Initialize memory in session state
 if "memory" not in st.session_state:
     st.session_state["memory"] = ConversationBufferWindowMemory(memory_key="chat_history", k=5, return_messages=True)
 
+if "messages" not in st.session_state:
+    st.session_state["messages"] = [{"role": "assistant", "content": "How can I help you?"}]
+
 # ---- UI Layout ---- #
 with st.container():  # This ensures everything stays in one page
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
     
-    st.markdown('<div class="title">💬 COD Mobile: AI Insight Tool</div>', unsafe_allow_html=True)
+    st.markdown('<div class="title">💬 COD Mobile: AI Retriever Tool</div>', unsafe_allow_html=True)
     # st.write("🔫 **Ask me anything about Call of Duty Mobile!** 🎯")
 
     query = st.text_input("Enter your question:", "")
@@ -160,13 +180,34 @@ with st.container():  # This ensures everything stays in one page
         if query.strip():
             with st.spinner("Thinking... 🎮"):
                 try:
-                    input_data = {"chat_history": st.session_state["memory"].load_memory_variables({})["chat_history"], "input": query}
-                    response = ask_question(input_data, rag_chain)
-                    st.session_state["memory"].save_context({"input": query}, {"answer": response})                
-                    logging.info("Latest conversation saved in memory.")
+                    q_type =classification_query(query)
+                    if q_type.lower()=='rag':
+                        try:
+                            input_data = {"chat_history": st.session_state["memory"].load_memory_variables({})["chat_history"], "input": query}
+                            response = ask_question(input_data, rag_chain)
+                            st.session_state["memory"].save_context({"input": query}, {"answer": response})                
+                            logging.info("Latest conversation saved in memory.")
+
+                            # Display Chat History
+                            if st.session_state["memory"].buffer:
+                                st.write("📝 **Conversation History:**")
+                                for msg in reversed(st.session_state["memory"].buffer):
+                                    if msg.type == "human":
+                                        st.markdown(f'<div class="chat-bubble user-query">👤 <strong>You:</strong> <br> {msg.content}</div>', unsafe_allow_html=True)
+                                    else:
+                                        st.markdown(f'<div class="chat-bubble bot-response">🤖 <strong>AI:</strong> <br> {msg.content}</div>', unsafe_allow_html=True)
+                        except Exception as e:
+                            st.error("⚠️ An error occurred. Please try again.")
+                            st.text(f"Error: {str(e)}")
+                    elif q_type.lower()=='sql query':
+                        sql_agent = sql_agent_creation(db)
+                        response = sql_agent.run(query)
+                        st.write(response)
+                    else:
+                        st.warning("Error in Query Classification")
                 except Exception as e:
                     st.error("⚠️ An error occurred. Please try again.")
-                    st.text(f"Error: {str(e)}")
+                    st.text(f"Error: {str(e)}")                   
         else:
             st.warning("⚠️ Please enter a valid question.")
 
@@ -175,14 +216,5 @@ with st.container():  # This ensures everything stays in one page
         clear_memory(st.session_state["memory"])
         st.session_state["memory"] = ConversationBufferWindowMemory(memory_key="chat_history", k=5, return_messages=True)
         st.success("✅ Chat history erased!")
-
-    # Display Chat History
-    if st.session_state["memory"].buffer:
-        st.write("📝 **Conversation History:**")
-        for msg in st.session_state["memory"].buffer:
-            if msg.type == "human":
-                st.markdown(f'<div class="chat-bubble user-query">👤 <strong>You:</strong> <br> {msg.content}</div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="chat-bubble bot-response">🤖 <strong>AI:</strong> <br> {msg.content}</div>', unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)  # Closing the chat-container
