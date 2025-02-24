@@ -10,3 +10,7 @@ unstructured
 python-docx
 pinecone-client==3.0.0
 langchain-pinecone
+pandas
+mysql-connector-python
+SQLAlchemy
+validators==0.28.1
