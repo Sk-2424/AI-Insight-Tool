@@ -140,12 +140,57 @@ def classification_query(query)-> str:
 def sql_agent_creation(db):
     try:
         llm = ChatOpenAI(model='gpt-4o-mini')
+        db_schema = db.get_table_info() 
+
+        sql_prompt = f"""
+            You are an expert SQL agent that **only** generates valid SQL queries.  
+            Your task is to strictly return a well-formed SQL query without any extra text, explanations, or comments.  
+
+            ### **Column Definitions & Guidelines**  
+            Use the following definitions to correctly interpret the meaning of each column:
+
+            - **calendar_date** → Represents the date of the record.  
+            - **tier (country tier)** → Data is categorized into three tiers: **T1, T2, T3**. 
+            - **region_s** → There are seven unique regions:
+                - European Economic Area (EEA) & other European countries  
+                - North America  
+                - Asia & Oceania (excluding China)  
+                - Russia & Commonwealth of Independent States (CIS)  
+                - LATAM & the Caribbean  
+                - Middle East & Africa  
+                - China 
+            - **platform_s** → The platform on which the game is played (**iOS, Android**).
+            - **daily_active_users (DAU)** → Number of users active on a given day.
+            - **revenue (Bookings)** → Total revenue generated. 
+            - **coda_revenue (CODA Shop Revenue)** → Revenue specifically from CODA Shop.  
+            - **payers (Spenders)** → Number of users who spend money in the game. 
+            - **conversion (Converted Users)** -> User who get converted from non spender to spender
+            - **installs** → Number of unique devices on which the game was installed.  
+            - **register_installs** → Number of users who installed the game and registered.
+            - **registers** -> No. of users who first time logged in in the game
+            - **reactivation (Reactivated Users)** → Users who returned to the game after 14+ days of inactivity.
+            - **session_hours (Session Duration)** → Total time spent in the game across all sessions.  
+            - **session_count** → Number of unique sessions in the game. 
+            
+            ### **Database Schema**  
+            Use the following schema for query generation:  
+            **{db_schema}**  
+
+            ### **Important Instructions**  
+            - Always generate a **valid SQL query** based on the provided schema.  
+            - **Do not add explanations, comments, or unnecessary text**. 
+            - If a query is not possible, return:  
+            ```sql
+            SELECT 'Query not supported' AS result;
+            """
+
         toolkit=SQLDatabaseToolkit(db=db,llm=llm)
         sql_agent=create_sql_agent(
         llm=llm,
         toolkit=toolkit,
         verbose=True,
-        agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION
+        agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+        agent_kwargs={"system_message": sql_prompt}
         )
         return sql_agent
     except Exception as e:
